@@ -13,7 +13,7 @@ class RecommendListView: UIView {
     let titleLabel = {
         let label = UILabel()
         label.font = .boldSystemFont(ofSize: 30)
-        label.text = "타이틀"
+        label.text = "인사이드 아웃"
         return label
     }()
     

@@ -13,23 +13,59 @@ class ViewController: BaseViewController {
     
     let mainView = RecommendListView()
     
+    var data:[[Item]] = [[Item(posterPath: "")],[Item(posterPath: "")]]
+   
+    var imageData:[Backdrop] = []
+    
     override func loadView() {
         self.view = mainView
     }
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        configureUI()
+        getData()
     }
 
-    override func configureUI(){
-        super.configureUI()
+    override func configureView(){
         mainView.tableView.delegate = self
         mainView.tableView.dataSource = self
         mainView.tableView.rowHeight = 140
         mainView.tableView.separatorStyle = .none
         mainView.tableView.register(RecommendListCell.self, forCellReuseIdentifier: RecommendListCell.identifier)
     }
+    
+    func getData(){
+        let group = DispatchGroup()
+        
+        group.enter()
+        DispatchQueue.global().async(group: group){
+            self.network.fetchSimilar(id: 1022789, type:APIType.similar.rawValue){ value in
+                self.data[0] = value.results
+                group.leave()
+            }
+        }
+        
+        group.enter()
+        DispatchQueue.global().async(group: group){
+            self.network.fetchSimilar(id: 1022789, type:APIType.recommendations.rawValue){ value in
+                self.data[1] = value.results
+                group.leave()
+            }
+        }
+        
+        group.enter()
+        DispatchQueue.global().async(group: group){
+            self.network.fetchImages(id: 1022789) { value in
+                self.imageData = value.backdrops
+                group.leave()
+            }
+        }
+        
+        group.notify(queue: .main) {
+            self.mainView.tableView.reloadData()
+        }
+    }
+
 }
 
 
@@ -56,26 +92,38 @@ extension ViewController:UITableViewDelegate, UITableViewDataSource{
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = mainView.tableView.dequeueReusableCell(withIdentifier: RecommendListCell.identifier, for: indexPath) as! RecommendListCell
-        switch indexPath.section{
-            case 0:
-                network.fetchSimilar(id: 1022789, type:APIType.similar.rawValue){ value in
-                    cell.data = value.results
-                }
-            case 1:
-            network.fetchSimilar(id: 1022789, type:APIType.recommendations.rawValue){ value in
-                cell.data = value.results
-            }
-            case 2:
-            network.fetchImages(id: 1022789) { value in
-                cell.imageData = value.backdrops
-            }
-            default:
-            network.fetchSimilar(id: 1022789, type:APIType.similar.rawValue){ value in
-                cell.data = value.results
-            }
-        }
-        
+        cell.collectionView.delegate = self
+        cell.collectionView.dataSource = self
+        cell.collectionView.register(RecommendCell.self, forCellWithReuseIdentifier: RecommendCell.identifier)
+        cell.collectionView.tag = indexPath.section
+        print(cell.collectionView.tag)
+        cell.collectionView.reloadData()
         return cell
+    }
+    
+    
+}
+
+extension ViewController:UICollectionViewDelegate, UICollectionViewDataSource{
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+
+        if collectionView.tag == 2{
+            return imageData.count
+        }else{
+            return data[collectionView.tag].count
+        }
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: RecommendCell.identifier, for: indexPath) as! RecommendCell
+        if collectionView.tag == 2{
+            cell.getImage(url: "https://image.tmdb.org/t/p/w500" + imageData[indexPath.row].filePath)
+        }else{
+            cell.getImage(url: "https://image.tmdb.org/t/p/w500" + data[collectionView.tag][indexPath.row].posterPath)
+        }
+
+        return cell
+    
     }
     
     
